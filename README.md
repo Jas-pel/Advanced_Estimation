@@ -1,6 +1,6 @@
 # Advanced Estimator
 
-**Jasmin & Thomas** — BSQ 101 / BSQ 110, Hiver 2026
+**Jasmin**
 
 Un framework pour estimer efficacement la valeur moyenne d'observables quantiques en regroupant les chaînes de Pauli commutantes via la théorie des graphes, la diagonalisation de Clifford et l'allocation adaptative de shots.
 
