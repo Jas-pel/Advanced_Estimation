@@ -2,7 +2,7 @@
 
 **Jasmin**
 
-Un framework pour estimer efficacement la valeur moyenne d'observables quantiques en regroupant les chaînes de Pauli commutantes via la théorie des graphes, la diagonalisation de Clifford et l'allocation adaptative de shots.
+Un framework pour estimer efficacement la valeur moyenne d'observables quantiques en regroupant les chaînes de Pauli commutantes via la théorie des graphes, la diagonalisation de Clifford et l'allocation adaptative de shots. Permet aussi la tomographie quantique.
 
 ---
 
