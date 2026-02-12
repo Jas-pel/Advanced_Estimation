@@ -1,0 +1,101 @@
+# NOTE : Je ne l'utilise pas encore
+import numpy as np
+from numpy.typing import NDArray
+from qiskit import QuantumCircuit
+from qiskit.primitives import BaseSamplerV2
+from qiskit.quantum_info import SparsePauliOp
+
+from advanced_estimation.commutation.base_commutation import BaseCommutation
+from advanced_estimation.estimation.pauli_estimation import (
+    estimate_cliques_expectation_values_and_covariances,
+    overall_paulis_expectation_values_and_covariances,
+)
+
+
+def iterative_estimate_sparse_pauli_op_expectation_value(
+    observable: SparsePauliOp,
+    state_circuit: QuantumCircuit,
+    sampler: BaseSamplerV2,
+    commutation_module: BaseCommutation,
+    shots_budget: int,
+    num_iterations: int = 5,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """
+    Implement an iterative estimation for an observable.
+    Devides the Pauli strings into clique based on the commutation_module.
+    Assign an equal number of shots to each clique.
+    Estimate the expectation values and covariances of the Paulis in the cliques.
+    Update the shots per cliques to increase the one giving the largest variance.
+    Repeat.
+
+    Args:
+        observable (SparsePauliOp): The observable to estimate
+        state_circuit (QuantumCircuit): A quantum state as a QuantumCircuit
+        sampler (BaseSamplerV2): The sampler on which to run the QuantumCircuits.
+        commutation_module (BaseCommutation): A module that defines a commutation relation.
+        shots_budget (int): The target number of total shots
+        num_iterations (int): The number of iteration to update the shots per cliques
+
+    Returns:
+        NDArray[np.float64]: The Observable expectation values for each iteration
+        NDArray[np.float64]]: The Observable variance for each iteration
+    """
+
+    paulis = observable.paulis
+    coeffs = observable.coeffs.real
+
+    num_paulis = paulis.size
+
+    cliques_paulis_indices = commutation_module.find_commuting_cliques(paulis)
+    num_cliques = len(cliques_paulis_indices)
+
+    # Assume uniform distribution first
+    cliques_shots = [max(shots_budget // num_cliques, 1) for _ in range(num_cliques)]
+
+    iter_expectation_values = np.zeros(num_iterations)
+    iter_variances = np.zeros(num_iterations)
+    for i in range(num_iterations):
+
+        actual_tot_shots = np.sum(cliques_shots)
+
+        cliques_expectation_values, cliques_covariances = estimate_cliques_expectation_values_and_covariances(
+            paulis, cliques_paulis_indices, cliques_shots, commutation_module, state_circuit, sampler
+        )
+
+        paulis_expectation_values, paulis_covariances = overall_paulis_expectation_values_and_covariances(
+            num_paulis, cliques_paulis_indices, cliques_expectation_values, cliques_covariances, cliques_shots
+        )
+
+        weighted_cliques_variances = compute_weighted_cliques_variances(
+            coeffs, cliques_paulis_indices, cliques_covariances
+        )
+
+        observable_expectation_value = np.matmul(coeffs, paulis_expectation_values)
+        observable_variance = np.einsum("ij,i,j", paulis_covariances, coeffs, coeffs) / actual_tot_shots
+
+        iter_expectation_values[i] = observable_expectation_value
+        iter_variances[i] = observable_variance
+
+        weighted_cliques_stds = np.sqrt(weighted_cliques_variances)
+
+        cliques_shots = np.ceil(weighted_cliques_stds / np.sum(weighted_cliques_stds) * shots_budget).astype(int)
+        cliques_shots[cliques_shots == 0] = 1
+
+    return iter_expectation_values, iter_variances
+
+
+def compute_weighted_cliques_variances(
+    coeffs: NDArray[np.float64],
+    cliques_paulis_indices: list[NDArray[np.int_]],
+    cliques_covariances: list[NDArray[np.float64]],
+) -> NDArray[np.float64]:
+
+    num_cliques = len(cliques_paulis_indices)
+
+    weighted_cliques_variances = np.zeros(num_cliques)
+    for i, (clique_paulis_indices, clique_covariances) in enumerate(zip(cliques_paulis_indices, cliques_covariances)):
+
+        clique_coeffs = coeffs[clique_paulis_indices]
+        weighted_cliques_variances[i] = np.einsum("jk,j,k", clique_covariances, clique_coeffs, clique_coeffs)
+
+    return weighted_cliques_variances
