@@ -10,7 +10,9 @@ from qiskit.quantum_info import PauliList
 class BaseCommutation(ABC):
 
     def find_commuting_cliques(self, paulis: PauliList) -> list[NDArray[np.int_]]:
-
+        """
+        Return the commuting cliques for a given list of Pauli Strings.
+        """
         commutation_table = self.commutation_table(paulis)
 
         graph = nx.from_numpy_array(commutation_table)

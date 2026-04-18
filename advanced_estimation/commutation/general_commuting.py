@@ -15,7 +15,8 @@ class GeneralCommutation(BaseCommutation):
 
     def commutation_table(self, paulis: PauliList) -> NDArray[np.bool]:
         """
-        Return the general commutation table within a PauliList. The element (i,j) is True if the ith Pauli string commutes with the jth Pauli string.
+        Return the general commutation table within a PauliList.
+        The element (i,j) is True if the ith Pauli string commutes with the jth Pauli string.
 
         Args:
             paulis (PauliList): A list of Pauli strings
@@ -23,8 +24,8 @@ class GeneralCommutation(BaseCommutation):
         Returns:
             NDArray[np.bool]: The commutation table
         """
-        x = paulis.x.astype(int)  # (i, q)
-        z = paulis.z.astype(int)  # (j, q)
+        x = paulis.x.astype(int)
+        z = paulis.z.astype(int)
 
         commutation_table = np.einsum("iq, jq -> ij", x, z) + np.einsum(
             "iq, jq -> ij", z, x
