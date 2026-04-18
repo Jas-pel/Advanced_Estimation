@@ -45,7 +45,7 @@ def iterative_estimate_sparse_pauli_op_expectation_value(
 
     num_paulis = paulis.size
 
-    cliques_paulis_indices = commutation_module.find_commuting_cliques(paulis)
+    cliques_paulis_indices = commutation_module.find_min_commuting_cliques(paulis)
     num_cliques = len(cliques_paulis_indices)
 
     # Assume uniform distribution first
@@ -94,10 +94,17 @@ def iterative_estimate_sparse_pauli_op_expectation_value(
 
         weighted_cliques_stds = np.sqrt(weighted_cliques_variances)
 
-        cliques_shots = np.ceil(
-            weighted_cliques_stds / np.sum(weighted_cliques_stds) * shots_budget
-        ).astype(int)
-        cliques_shots[cliques_shots == 0] = 1
+        # Handle potential numerical instabilities (zeros or NaNs)
+        total_std = np.sum(weighted_cliques_stds)
+        if total_std > 0 and not np.isnan(total_std):
+            cliques_shots = np.ceil(
+                weighted_cliques_stds / total_std * shots_budget
+            ).astype(int)
+        else:
+            # Fallback to current allocation if we can't compute a better one
+            cliques_shots = np.copy(cliques_shots).astype(int)
+
+        cliques_shots[cliques_shots <= 0] = 1
 
     return iter_expectation_values, iter_variances
 
@@ -116,8 +123,9 @@ def compute_weighted_cliques_variances(
     ):
 
         clique_coeffs = coeffs[clique_paulis_indices]
-        weighted_cliques_variances[i] = np.einsum(
+        variance = np.einsum(
             "jk,j,k", clique_covariances, clique_coeffs, clique_coeffs
         )
+        weighted_cliques_variances[i] = np.maximum(variance, 0.0)
 
     return weighted_cliques_variances
