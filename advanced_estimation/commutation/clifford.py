@@ -1,8 +1,18 @@
 from typing import Union
+
 import numpy as np
 from qiskit.quantum_info import PauliList
 
+
 def h(paulis: PauliList, qubits: Union[int, list[int]]) -> PauliList:
+    """
+    APpllied the H gate on the specified qubits of the given PauliList.
+    Args:
+        paulis (PauliList): The input PauliList.
+        qubits (Union[int, list[int]]): The qubits on which to apply the H gate.
+    Returns:
+        PauliList: The transformed PauliList.
+    """
     if isinstance(qubits, int):
         qubits = [qubits]
 
@@ -12,7 +22,7 @@ def h(paulis: PauliList, qubits: Union[int, list[int]]) -> PauliList:
     z_table = new_z[:, qubits].astype(int)
     x_table = new_x[:, qubits].astype(int)
 
-    new_phase = paulis.phase + 2 * np.einsum('pq, pq -> p', z_table, x_table)
+    new_phase = paulis.phase + 2 * np.einsum("pq, pq -> p", z_table, x_table)
     new_phase = np.mod(new_phase, 4)
 
     new_z[:, qubits] = x_table
@@ -31,7 +41,7 @@ def s(paulis: PauliList, qubits: Union[int, list[int]]) -> PauliList:
     z_table = new_z[:, qubits].astype(int)
     x_table = new_x[:, qubits].astype(int)
 
-    new_phase = paulis.phase + 2 * np.einsum('pq, pq -> p', z_table, x_table)
+    new_phase = paulis.phase + 2 * np.einsum("pq, pq -> p", z_table, x_table)
     new_phase = np.mod(new_phase, 4)
 
     new_z[:, qubits] = np.logical_xor(z_table, x_table)
@@ -39,7 +49,11 @@ def s(paulis: PauliList, qubits: Union[int, list[int]]) -> PauliList:
     return PauliList.from_symplectic(new_z, new_x, new_phase)
 
 
-def cx(paulis: PauliList, control_qubits: Union[int, list[int]], target_qubits: Union[int, list[int]]) -> PauliList:
+def cx(
+    paulis: PauliList,
+    control_qubits: Union[int, list[int]],
+    target_qubits: Union[int, list[int]],
+) -> PauliList:
     if isinstance(control_qubits, int):
         control_qubits = [control_qubits]
     if isinstance(target_qubits, int):
@@ -56,7 +70,9 @@ def cx(paulis: PauliList, control_qubits: Union[int, list[int]], target_qubits: 
         zt = new_z[:, t]
         xt = new_x[:, t]
 
-        term_phase = xc.astype(int) * zt.astype(int) * (1 - np.logical_xor(zc, xt).astype(int))
+        term_phase = (
+            xc.astype(int) * zt.astype(int) * (1 - np.logical_xor(zc, xt).astype(int))
+        )
         add_phase = 2 * term_phase
         new_phase = np.mod(new_phase + add_phase, 4)
 
@@ -66,12 +82,16 @@ def cx(paulis: PauliList, control_qubits: Union[int, list[int]], target_qubits: 
     return PauliList.from_symplectic(new_z, new_x, new_phase)
 
 
-def cz(paulis: PauliList, control_qubits: Union[int, list[int]], target_qubits: Union[int, list[int]]) -> PauliList:
+def cz(
+    paulis: PauliList,
+    control_qubits: Union[int, list[int]],
+    target_qubits: Union[int, list[int]],
+) -> PauliList:
     # NOTE : Cette implémentation utilise une boucle plutôt qu'une approche vectorisée.
-    # La raison : lorsque plusieurs paires control-target partagent des qubits 
-    # (ex: CZ(0,1) puis CZ(1,2)), chaque transformation CZ doit voir les modifications 
-    # des transformations précédentes. Une approche vectorisée qui extrait toutes les 
-    # valeurs au début appliquerait les transformations en parallèle au lieu de 
+    # La raison : lorsque plusieurs paires control-target partagent des qubits
+    # (ex: CZ(0,1) puis CZ(1,2)), chaque transformation CZ doit voir les modifications
+    # des transformations précédentes. Une approche vectorisée qui extrait toutes les
+    # valeurs au début appliquerait les transformations en parallèle au lieu de
     # séquentiellement, ce qui donnerait des résultats incorrects.
     if isinstance(control_qubits, int):
         control_qubits = [control_qubits]
@@ -95,4 +115,5 @@ def cz(paulis: PauliList, control_qubits: Union[int, list[int]], target_qubits: 
         new_z[:, c] = np.logical_xor(zc, xt)
         new_z[:, t] = np.logical_xor(zt, xc)
 
+    return PauliList.from_symplectic(new_z, new_x, new_phase)
     return PauliList.from_symplectic(new_z, new_x, new_phase)
